@@ -185,6 +185,10 @@
                                                        (ensure-list subdirectory)))
                      pathname)))
 
+
+(defun subdir-string (pathname subdirectory)
+  (namestring (subdir pathname subdirectory)))
+
 (defun snapshot (destination &key
                                destination-host
                                (iso-date (iso-date))
@@ -201,15 +205,15 @@
 
 (defun sync (source destination
              &key
-               destination-host
-               (iso-date (iso-date)))
+               destination-host)
   (assert (null destination-host))
   (run-command `("rsync" ,@source
-                         ,(namestring (subdir destination iso-date))
+                         ,(subdir-string destination "current")
                          "--archive"
                          "--delete"
-                         "--recursive"
-                         "--progress")))
+                         "--inplace"
+                         "--progress"
+                         "--recursive")))
 
 (defun backup (source destination
                &key
@@ -225,8 +229,7 @@
               :destination-host destination-host
               :iso-date iso-date)
     (sync source destination
-          :destination-host destination-host
-          :iso-date iso-date)
+          :destination-host destination-host)
     ;; Perform the backup
     ;; Rotate old backups
     ))
