@@ -205,6 +205,7 @@
 
 (defun sync (source destination
              &key
+               (verbose t)
                destination-host)
   (assert (null destination-host))
   (run-command `("rsync" ,@source
@@ -212,7 +213,7 @@
                          "--archive"
                          "--delete"
                          "--inplace"
-                         "--progress"
+                         ,@(when verbose '("--verbose"))
                          "--recursive")))
 
 (defun backup (source destination
