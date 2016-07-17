@@ -52,6 +52,17 @@
 ;;; Snapshots  ;;;
 ;;;;;;;;;;;;;;;;;;
 
+(defun probe-type (place)
+  (cond
+    ((btrfs-p place)
+     :btrfs)
+    (t
+     :hardlink)))
+
+(defun type-cow-p (type)
+  (or (eq type :btrfs)
+      (eq type :zfs)))
+
 (defun btrfs-p (place)
   (zerop (sudo-command `("btrfs" "filesystem" "label"
                                  ,(namestring place))
@@ -75,16 +86,17 @@
              (not (probe-file destination)))
     (run-command `("cp" "--archive"
                         "--link"
+                        "--"
                         ,(namestring source)
                         ,(namestring destination)))))
 
 (defun snapshot (destination &key
-                               (iso-date (iso-date))
-                               )
+                               (type (probe-type destination))
+                               (iso-date (iso-date)))
   (let ((current (subdir destination "current"))
         (today (subdir destination iso-date)))
-    (cond
-      ((btrfs-p destination)
+    (ecase type
+      (:btrfs
        (snapshot-btrfs current today))
-      (t
+      (:hardlink
        (snapshot-hardlink current today)))))

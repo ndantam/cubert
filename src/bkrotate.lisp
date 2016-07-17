@@ -95,16 +95,18 @@
 
 (defun sync (source destination
              &key
+               (type (probe-type destination))
                (verbose t)
                destination-host)
   (assert (null destination-host))
-  (run-command `("rsync" ,@source
-                         ,(subdir-string destination "current")
-                         "--archive"
+  (run-command `("rsync" "--archive"
                          "--delete"
-                         "--inplace"
+                         ,@(when (type-cow-p type)
+                                 '("--inplace"))
                          ,@(when verbose '("--verbose"))
-                         "--recursive")))
+                         "--"
+                         ,@source
+                         ,(subdir-string destination "current"))))
 
 (defun backup (source destination
                &key
@@ -115,11 +117,13 @@
                    for n = (namestring s)
                    collect (if source-host
                                (concatenate 'string source-host ":" s)
-                               s))))
+                               s)))
+        (type (probe-type destination)))
     (snapshot destination
-              :destination-host destination-host
+              :type type
               :iso-date iso-date)
     (sync source destination
+          :type type
           :destination-host destination-host)
     ;; Perform the backup
     ;; Rotate old backups
