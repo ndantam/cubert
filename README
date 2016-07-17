@@ -1,0 +1,17 @@
+CUBERT
+======
+
+Cubert is a backup program.
+
+
+Examples
+========
+
+Backup a remote server
+----------------------
+
+    #!/usr/local/bin/cubert --script
+
+    (cubert:backup (list "/etc" "/srv" "/home/ntd")
+                   "/mnt/backup/SERVER/"
+                   :source-host "root@SERVER")
