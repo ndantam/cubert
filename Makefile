@@ -5,9 +5,12 @@ cubert_SOURCES := \
 	src/sys.lisp  \
 	src/cubert.asd
 
+LISP = sbcl --load
+# LISP = ecl -load
+
 cubert: $(cubert_SOURCES)
-	sbcl --eval '(require :cubert)' \
-	     --eval '(sb-ext:save-lisp-and-die "cubert" :executable t)'
+	$(LISP) build.lisp
+
 
 clean:
 	rm -f cubert
