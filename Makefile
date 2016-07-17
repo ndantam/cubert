@@ -1,4 +1,9 @@
-cubert_SOURCES := package.lisp bkrotate.lisp cubert.asd
+cubert_SOURCES := \
+	src/package.lisp \
+	src/bkrotate.lisp  \
+	src/time.lisp  \
+	src/sys.lisp  \
+	src/cubert.asd
 
 cubert: $(cubert_SOURCES)
 	sbcl --eval '(require :cubert)' \
