@@ -1,3 +1,10 @@
+(require :asdf)
+
+;; Add source directory to ASDF registry
+(pushnew (pathname "./src/")
+         asdf:*central-registry*
+         :test #'equal)
+
 (require :cubert)
 
 #+sbcl
