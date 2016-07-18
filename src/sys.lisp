@@ -71,13 +71,15 @@
                        :echo nil
                        :ignore-error-status t)))
 
-(defun snapshot-btrfs (source destination)
+(defun snapshot-btrfs (source destination &key
+                                            readonly)
   (if (probe-file source)
       ;; snapshot source to destination
       (unless (probe-file destination)
-        (sudo-command (list "btrfs" "subvolume" "snapshot"
-                            (namestring source)
-                            (namestring destination))))
+        (sudo-command `("btrfs" "subvolume" "snapshot"
+                                ,@(when readonly '("-r"))
+                                ,(namestring source)
+                                ,(namestring destination))))
       ;; create source
       (sudo-command (list "btrfs" "subvolume" "create" (namestring source)))))
 
@@ -97,6 +99,6 @@
         (today (subdir destination iso-date)))
     (ecase type
       (:btrfs
-       (snapshot-btrfs current today))
+       (snapshot-btrfs current today :readonly t))
       (:hardlink
        (snapshot-hardlink current today)))))
