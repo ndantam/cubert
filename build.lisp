@@ -8,7 +8,12 @@
 (require :cubert)
 
 #+sbcl
-(cubert::save-core "cubert")
+(let ((compression nil))
+  #+sb-core-compression
+  (setq compression t)
+  (sb-ext:save-lisp-and-die "cubert"
+                            :executable t
+                            :compression compression))
 
 #+ecl
 (asdf:make-build :cubert
