@@ -28,13 +28,16 @@
                                (concatenate 'string source-host ":" s)
                                s)))
         (type (probe-type destination)))
+    ;; Take a snapshot
     (snapshot destination
               :type type
               :iso-date iso-date)
+    ;; Perform the backup
     (sync source destination
           :type type
           :destination-host destination-host)
-    ;; Perform the backup
+    ;; Flush to disk
+    (fs-sync)
     ;; Rotate old backups
     ))
 

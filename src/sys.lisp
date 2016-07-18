@@ -48,6 +48,10 @@
 (defun subdir-string (pathname subdirectory)
   (namestring (subdir pathname subdirectory)))
 
+(defun fs-sync (&optional pathname)
+  (sudo-command `("sync" ,@(when pathname
+                                 (list "--file-system" (namestring pathname))))))
+
 ;;;;;;;;;;;;;;;;;;
 ;;; Snapshots  ;;;
 ;;;;;;;;;;;;;;;;;;
