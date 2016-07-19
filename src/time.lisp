@@ -5,11 +5,131 @@
 
 (defparameter +day-seconds+ (* 60 60 24))
 
-(defun iso-date (&optional (utime (get-universal-time)))
+
+;;;;;;;;;;;;;;;;
+;;; ISO 8601 ;;;
+;;;;;;;;;;;;;;;;
+;;;
+;;; Date: YYYY-MM-DD
+;;;
+;;; Date and Local Time:  YYYY-MM-DDTHH:MM
+;;;                       YYYY-MM-DDTHH:MM:SS
+;;;
+;;; Date and UTC Time:    YYYY-MM-DDTHH:MM:SSZ
+;;;                       YYYY-MM-DDTHH:MM:SS+0
+;;;
+;;; Date and Time: YYYY-MM-DDTHH:MM:SS+HH
+;;;                YYYY-MM-DDTHH:MM:SS+HH:MM
+;;;
+;;;
+
+(defun local-time-zone ()
+  (multiple-value-bind (sec min hour date mon year dow dst tz)
+      (decode-universal-time 0)
+    (declare (ignore sec min hour date mon year dow dst))
+    tz))
+
+(defun iso-date (&optional universal-time time-zone)
   (multiple-value-bind (sec min hour date mon year)
-      (decode-universal-time utime)
+      (decode-universal-time (or universal-time
+                                 (get-universal-time))
+                             time-zone)
     (declare (ignore sec min hour))
     (format nil "~A-~2,'0d-~2,'0d" year mon date)))
+
+(defun iso-date-time (&optional universal-time time-zone)
+  (multiple-value-bind (sec min hour date mon year dow dst tz)
+      (decode-universal-time (or universal-time
+                                 (get-universal-time))
+                             time-zone)
+    (declare (ignore dow dst tz))
+    (format nil "~A-~2,'0d-~2,'0dT~2,0d:~2,0d:~2,0d~A"
+            year mon date hour min sec
+            (if time-zone
+              (if (zerop time-zone) "Z"
+                  (format nil "+~A" time-zone))
+              ""))))
+
+(defparameter +iso-time-zone-regex+
+  `(:alternation
+    ;; UTC Zulu
+    (:register (:alternation "z" "Z"))
+    (:sequence
+     ;; TZ hour
+     (:register  (:sequence (:alternation "+" "-")
+                            (:greedy-repetition 1 2 :digit-class)))
+     ;; Optional TZ Minute
+     (:greedy-repetition
+      0 1
+      (:sequence
+       ":"
+       (:register  (:greedy-repetition 0 2 :digit-class)))))))
+
+(defparameter +iso-time-regex+
+  `(:sequence
+    ;; hour
+    (:register (:sequence :digit-class :digit-class))
+    ":"
+    ;; min
+    (:register (:sequence :digit-class :digit-class))
+    ;; maybe seconds
+    (:greedy-repetition
+     0 1
+     (:sequence
+      ":"
+      (:register (:sequence :digit-class :digit-class))))
+    ;; timezone
+    (:greedy-repetition
+     0 1
+     ,+iso-time-regex+)))
+
+(defparameter +iso-date-regex+
+  `(:sequence
+    ;; year
+    (:register (:sequence :digit-class :digit-class :digit-class :digit-class))
+    (:regex "-?")
+    ;; month
+    (:register (:sequence :digit-class :digit-class))
+    (:regex "-?")
+    ;; day
+    (:register (:sequence :digit-class :digit-class))))
+
+(defparameter +iso-date-time-regex+
+  `(:sequence
+    ;; start
+    :start-anchor
+    (:regex "\\s*")
+    ;; year
+    ,+iso-date-regex+
+    ;; Time
+    (:greedy-repetition
+     0 1
+     (:sequence (:regex "\\s*T?\\s*")
+                ,+iso-time-regex+))))
+
+(defparameter +iso-date-scanner+
+  (ppcre:create-scanner +iso-date-time-regex+))
+
+(defun parse-iso-date (string)
+  (ppcre:register-groups-bind (year month date hour min sec tz-zulu tz-hour tz-min)
+      (+iso-date-scanner+ string)
+    (flet ((maybe-parse (string)
+             (if string
+                 (parse-integer string)
+                 0)))
+      (if (and year month date)
+          (encode-universal-time (maybe-parse sec)
+                                 (maybe-parse min)
+                                 (maybe-parse hour)
+                                 (parse-integer date)
+                                 (parse-integer month)
+                                 (parse-integer year)
+                                 ;; Timezone, default to nil (localtime)
+                                 (cond (tz-zulu 0)
+                                       (tz-hour (+ (parse-integer tz-hour)
+                                                   (/ (maybe-parse tz-min) 60)))))
+          (error "not an iso date")))))
+
 
 
 (defun time-delta (time &key
@@ -56,11 +176,3 @@
       (decode-universal-time time)
     (declare (ignore sec min hour ))
     date))
-
-(defun parse-iso-date (string &optional error-value)
-  (handler-case
-      (let ((year (parse-integer string :start 0 :end 4))
-            (month (parse-integer string :start 5 :end 7))
-            (date (parse-integer string :start 8 :end 10)))
-        (encode-universal-time 0 0 0 date month year))
-    (error () error-value)))

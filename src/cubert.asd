@@ -1,6 +1,6 @@
 (asdf:defsystem cubert
   :description "Backup Script"
-  :depends-on ("alexandria")
+  :depends-on ("alexandria" "cl-ppcre")
   ;; Keep these components in sync with Makefile.am
   :components ((:file "package")
                (:file "time" :depends-on ("package"))
