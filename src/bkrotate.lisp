@@ -49,7 +49,7 @@
 ;;   (format t "~&Checking directory: ~A... "
 ;;           dir)
 ;;   (let* ((iso-string (car (last (pathname-directory dir))))
-;;          (iso-time (parse-iso-date iso-string)))
+;;          (iso-time (encode-iso-date iso-string)))
 ;;     (if iso-time
 ;;       (let ((last-week (time-delta now :days -8))
 ;;             (last-month (time-delta now :months -1))

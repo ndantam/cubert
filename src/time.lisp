@@ -81,7 +81,7 @@
     ;; timezone
     (:greedy-repetition
      0 1
-     ,+iso-time-regex+)))
+     ,+iso-time-zone-regex+)))
 
 (defparameter +iso-date-regex+
   `(:sequence
@@ -113,24 +113,25 @@
 (defun parse-iso-date (string)
   (ppcre:register-groups-bind (year month date hour min sec tz-zulu tz-hour tz-min)
       (+iso-date-scanner+ string)
-    (flet ((maybe-parse (string)
-             (if string
-                 (parse-integer string)
-                 0)))
-      (if (and year month date)
-          (encode-universal-time (maybe-parse sec)
-                                 (maybe-parse min)
-                                 (maybe-parse hour)
-                                 (parse-integer date)
-                                 (parse-integer month)
-                                 (parse-integer year)
-                                 ;; Timezone, default to nil (localtime)
-                                 (cond (tz-zulu 0)
-                                       (tz-hour (+ (parse-integer tz-hour)
-                                                   (/ (maybe-parse tz-min) 60)))))
-          (error "not an iso date")))))
+    (if (and year month date)
+        (flet ((maybe-parse (string)
+                 (if string
+                     (parse-integer string)
+                     0)))
+          (values (maybe-parse sec)
+                  (maybe-parse min)
+                  (maybe-parse hour)
+                  (parse-integer date)
+                  (parse-integer month)
+                  (parse-integer year)
+                  (cond (tz-zulu 0)
+                        (tz-hour (+ (parse-integer tz-hour)
+                                    (/ (maybe-parse tz-min) 60))))))
+          (error "not an iso date"))))
 
-
+(defun encode-iso-date (string)
+  (multiple-value-call #'encode-universal-time
+    (parse-iso-date string)))
 
 (defun time-delta (time &key
                   (seconds 0) (minutes 0) (hours 0)
