@@ -4,21 +4,26 @@
 
 (defun sync (source destination
              &key
+               exclude
                (type (probe-type destination))
                (verbose t)
                destination-host)
   (assert (null destination-host))
   (run-command `("rsync" "--archive"
                          "--delete"
-                         ,@(when (type-cow-p type)
-                                 '("--inplace"))
+                         ;; ,@(when (type-cow-p type)
+                         ;;         '("--inplace"))
                          ,@(when verbose '("--verbose"))
+                         "--delete-excluded"
+                         ,@(loop for e in (ensure-list exclude)
+                              collect (format nil "--exclude=~A" e))
                          "--"
                          ,@source
                          ,(subdir-string destination "current"))))
 
 (defun backup (source destination
                &key
+                 exclude
                  source-host
                  destination-host
                (iso-date (iso-date)))
@@ -34,6 +39,7 @@
               :iso-date iso-date)
     ;; Perform the backup
     (sync source destination
+          :exclude exclude
           :type type
           :destination-host destination-host)
     ;; Flush to disk
