@@ -7,4 +7,5 @@
                  :directory t :recurse nil
                  :collect nil
                  :function (lambda (pathname)
-                             (run-command (list "git" "-C" (namestring pathname) "fsck")))))
+                             (run-command (list "git" "-C" (namestring pathname) "fsck"
+                                                "--full" "--no-dangling")))))
