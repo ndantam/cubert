@@ -43,7 +43,7 @@
                                  (get-universal-time))
                              time-zone)
     (declare (ignore dow dst tz))
-    (format nil "~A-~2,'0d-~2,'0dT~2,0d:~2,0d:~2,0d~A"
+    (format nil "~A-~2,'0d-~2,'0dT~2,'0d:~2,'0d:~2,'0d~A"
             year mon date hour min sec
             (if time-zone
               (if (zerop time-zone) "Z"
