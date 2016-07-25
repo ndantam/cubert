@@ -52,6 +52,58 @@
   (sudo-command `("sync" ,@(when pathname
                                  (list "--file-system" (namestring pathname))))))
 
+(defun directory-p (pathname)
+  (null (pathname-name (pathname pathname))))
+
+(defun visit-pathname (pathname function)
+  (labels ((rec (pathname)
+             (let ((recurse (funcall function pathname)))
+               (when (and recurse (directory-p pathname))
+                 (map nil #'rec
+                      (directory (subdir pathname :wild)))))))
+    (rec (pathname pathname))))
+
+(defun find-pathname (root &key
+                             name
+                             name-regex
+                             recurse
+                             function
+                             (collect t)
+                             (file t)
+                             (directory t))
+  (let ((result nil)
+        (name-regex (if (or (stringp name-regex)
+                            (consp name-regex))
+                        (ppcre:create-scanner name-regex)
+                        name-regex)))
+    (visit-pathname root (lambda (pathname)
+                           (let* ((is-dir (directory-p pathname))
+                                  (current-name (if is-dir
+                                                    (car (last (pathname-directory pathname)))
+                                                    (pathname-name pathname))))
+                             (if (and
+                                  ;; name
+                                  (or (null name)
+                                      (string= current-name name))
+                                  (or (null name-regex)
+                                      (ppcre:scan name-regex current-name))
+                                  ;; type
+                                  (if is-dir
+                                      directory
+                                      file))
+                                 ;; Match
+                                 (progn
+                                   (when collect
+                                     (push pathname result))
+                                   (when function
+                                     (funcall function pathname))
+                                   recurse)
+                                 ;; No match
+                                 is-dir))))
+    result))
+
+
+
 ;;;;;;;;;;;;;;;;;;
 ;;; Snapshots  ;;;
 ;;;;;;;;;;;;;;;;;;
