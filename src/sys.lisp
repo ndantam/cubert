@@ -10,7 +10,8 @@
                           (error-output *error-output*)
                           ignore-error-status)
   (when echo
-    (format t "~&~{~A~^ ~}~%" cmd))
+    (format t "~&~{~A~^ ~}~%" cmd)
+    (finish-output))
   (multiple-value-bind (output error-output exit-code)
       (uiop/run-program:run-program cmd
                                     :ignore-error-status ignore-error-status
