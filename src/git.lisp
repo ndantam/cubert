@@ -23,8 +23,8 @@
         url)
     (pathname (concatenate 'string
                            host "/"
-                           (ppcre:regex-replace "\\.git$" path "")
-                           ".git"))))
+                           (ppcre:regex-replace "(\\.git)?/?$" path "")
+                           ".git/"))))
 
 
 (defun %backup-git (root url)
