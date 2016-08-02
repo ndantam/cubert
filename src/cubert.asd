@@ -5,4 +5,5 @@
   :components ((:file "package")
                (:file "time" :depends-on ("package"))
                (:file "sys" :depends-on ("package"))
-               (:file "bkrotate" :depends-on ("sys" "time" "package"))))
+               (:file "bkrotate" :depends-on ("sys" "time" "package"))
+               (:file "git" :depends-on ("sys" "package"))))

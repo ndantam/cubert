@@ -27,7 +27,7 @@
                            ".git/"))))
 
 
-(defun %backup-git (root url)
+(defun %backup-git (root url clone fetch)
   (let* ((root (pathname root))
          (rel-path (git-url-path url))
          (abs-path (merge-pathnames rel-path root))
@@ -35,10 +35,22 @@
     (assert (null (pathname-name root)))
     (if (probe-file abs-path)
         ;; exists, update
-        (run-command (list  "git" "-C" namestring "fetch" "--prune"))
+        (when fetch
+          (run-command (list  "git" "-C" namestring "fetch" "--prune")))
         ;; does not exist clone
-        (run-command (list  "git" "clone" "--mirror" url namestring )))))
+        (when clone
+          (run-command (list  "git" "clone" "--mirror" url namestring ))))))
 
-(defun backup-git (root urls)
-  (loop for url in (ensure-list urls)
-     do (%backup-git root url)))
+(defun backup-git (root urls &key
+                               (sleep 0)
+                               (clone t)
+                               (fetch t))
+  (labels ((helper (url)
+             (%backup-git root url clone fetch)))
+    (loop for url in (ensure-list urls)
+       do (etypecase url
+            (string (helper url))
+            (list (loop for path in (cdr url)
+                     do (progn
+                          (sleep sleep)
+                          (helper (concatenate 'string (car url) path)))))))))
