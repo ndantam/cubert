@@ -38,13 +38,45 @@
 ;;; Filesystem ;;;
 ;;;;;;;;;;;;;;;;;;
 
-(defun subdir (pathname subdirectory)
+(defun stat (pathname)
+  (sb-posix:stat pathname))
+
+(defun stat-ino (stat)
+  (sb-posix:stat-ino stat))
+
+(defun stat-nlink (stat)
+  (sb-posix:stat-nlink stat))
+
+(defun directory-p (pathname)
+  (and (null (pathname-name (pathname pathname)))
+       (null (pathname-name (pathname pathname)))))
+
+(defun ensure-directory (pathname)
   (let ((pathname (pathname pathname)))
-    ;; ensure not a file
-    (assert (null (pathname-name pathname)))
-    (merge-pathnames (make-pathname :directory (append (pathname-directory pathname)
-                                                       (ensure-list subdirectory)))
-                     pathname)))
+    (when (wild-pathname-p pathname)
+      (error "Cannot convert wild pathnames."))
+    (if (directory-p pathname)
+        pathname
+        (make-pathname
+         :directory (append (or (pathname-directory pathname) (list :relative))
+                            (list (file-namestring pathname)))
+         :name nil
+         :type nil
+         :defaults pathname))))
+
+(defun subdir (pathname subdirectory)
+  (let ((pathname (ensure-directory pathname)))
+    (make-pathname :directory (append (pathname-directory pathname)
+                                      (ensure-list subdirectory))
+                   :defaults pathname)))
+
+(defun parentdir (pathname)
+  (make-pathname :directory '(:relative :up)
+                 :defaults (ensure-directory pathname)))
+
+(defun listdir (pathname)
+  (directory  (make-pathname :name :wild
+                             :defaults (ensure-directory pathname))))
 
 (defun subdir-string (pathname subdirectory)
   (namestring (subdir pathname subdirectory)))
@@ -53,8 +85,14 @@
   (sudo-command `("sync" ,@(when pathname
                                  (list "--file-system" (namestring pathname))))))
 
-(defun directory-p (pathname)
-  (null (pathname-name (pathname pathname))))
+(defun visit-files (function root)
+  (labels ((rec (root)
+             (loop for x in (listdir root)
+                do (if (directory-p x)
+                       (rec x)
+                       (funcall function x)))))
+    (rec (ensure-directory root))))
+
 
 (defun visit-pathname (pathname function)
   (labels ((rec (pathname)
