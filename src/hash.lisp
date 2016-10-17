@@ -28,6 +28,10 @@
                    (rec parent)))))
     (rec root)))
 
+(defvar *db-abort* nil)
+
+(defun db-abort ()
+  (setq *db-abort* t))
 
 (defun db-intern (pathname)
   (let* ((verbose *verbose*)
@@ -49,20 +53,35 @@
              (ino-file (ino)
                (merge-pathnames (format nil "~A" ino)
                                 inodir))
+             (cmp-file (a b)
+               (uiop/run-program:run-program (list "cmp"
+                                                   (namestring a)
+                                                   (namestring b))
+                                             :output *standard-output*
+                                             :error-output *error-output*))
              (intern-file (file)
-                   (let* ((ino (ino file))
-                          (ino-file (ino-file ino)))
-                     ;; Bail out if we match the inode
-                     ;; TODO: maybe check inode match
-                     (unless (probe-file ino-file)
-                       (let* ((hash (file-hash file))
-                              (hash-file (merge-pathnames hash hashdir)))
-                         (if (probe-file hash-file)
-                             ;; have hash
-                             (unless (= ino (ino hash-file))
-                               (sb-posix:unlink file)
-                               (link hash-file file))
-                             ;; no hash, intern it
-                             (progn (link file hash-file)
-                                    (symlink hash-file ino-file))))))))
-    (visit-files #'intern-file pathname))))
+               ;; gracefully abort
+               (when *db-abort*
+                 (setq *db-abort* nil)
+                 (break))
+               (let* ((ino (ino file))
+                      (ino-file (ino-file ino)))
+                 (if-let ((hash-file (probe-file ino-file)))
+                   ;; Inode is already in the DB, verify it
+                   (unless (= ino (ino hash-file))
+                     (error "Wrong inode of ~A, wanted ~A"
+                            hash-file ino))
+                   ;; Hash the file
+                   (let* ((hash (file-hash file))
+                          (hash-file (merge-pathnames hash hashdir)))
+                     (if (probe-file hash-file)
+                         ;; have hash in DB, use it
+                         (unless (= ino (ino hash-file))
+                           (cmp-file file hash-file) ; paranoid verify
+                           (sb-posix:unlink file)
+                           ;; Uh-oh, the file is temporarily missing...
+                           (link hash-file file))
+                         ;; no hash in DB, intern it
+                         (progn (link file hash-file)
+                                (symlink hash-file ino-file))))))))
+      (visit-files #'intern-file pathname))))
