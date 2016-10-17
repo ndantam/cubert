@@ -33,6 +33,11 @@
 (defun db-abort ()
   (setq *db-abort* t))
 
+(defun db-check-ino-file (ino truename)
+  (unless (= ino (stat-ino (stat truename)))
+    (error "Wrong inode of ~A, wanted ~A"
+           truename ino)))
+
 (defun db-intern (pathname)
   (let* ((verbose *verbose*)
          (db (find-db pathname))
@@ -68,9 +73,7 @@
                       (ino-file (ino-file ino)))
                  (if-let ((probe-ino (probe-file ino-file)))
                    ;; Inode is already in the DB, verify it
-                   (unless (= ino (ino probe-ino))
-                     (error "Wrong inode of ~A, wanted ~A"
-                            probe-ino ino))
+                   (db-check-ino-file ino probe-ino)
                    ;; Hash the file
                    (let* ((hash (file-hash file))
                           (hash-file (merge-pathnames hash hashdir)))
@@ -86,7 +89,13 @@
                              (link hash-file file))
                            ;; Ensure that hashfile inode in registered
                            (if-let ((probed (probe-file hash-ino-file)))
-                             t
+                             ;; validate existing ino file
+                             (progn
+                               (db-check-ino-file hash-ino probed)
+                               (unless (equal (namestring probed)
+                                              (namestring (truename hash-file)))
+                                 (error "Unexpected truename of ~A" hash-ino-file)))
+                             ;; create no file
                              (symlink hash-file hash-ino-file)))
                          ;; no hash in DB, intern it
                          (progn (link file hash-file)
