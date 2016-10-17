@@ -66,22 +66,29 @@
                  (break))
                (let* ((ino (ino file))
                       (ino-file (ino-file ino)))
-                 (if-let ((hash-file (probe-file ino-file)))
+                 (if-let ((probe-ino (probe-file ino-file)))
                    ;; Inode is already in the DB, verify it
-                   (unless (= ino (ino hash-file))
+                   (unless (= ino (ino probe-ino))
                      (error "Wrong inode of ~A, wanted ~A"
-                            hash-file ino))
+                            probe-ino ino))
                    ;; Hash the file
                    (let* ((hash (file-hash file))
                           (hash-file (merge-pathnames hash hashdir)))
                      (if (probe-file hash-file)
                          ;; have hash in DB, use it
-                         (unless (= ino (ino hash-file))
-                           (cmp-file file hash-file) ; paranoid verify
-                           (sb-posix:unlink file)
-                           ;; Uh-oh, the file is temporarily missing...
-                           (link hash-file file))
+                         (let* ((hash-ino (ino hash-file))
+                                (hash-ino-file (ino-file hash-ino)))
+                           ;; Link hash-file to the file unless inodes match
+                           (unless (= ino hash-ino)
+                             (cmp-file file hash-file) ; paranoid verify
+                             (sb-posix:unlink file)
+                             ;; Uh-oh, the file is temporarily missing...
+                             (link hash-file file))
+                           ;; Ensure that hashfile inode in registered
+                           (if-let ((probed (probe-file hash-ino-file)))
+                             t
+                             (symlink hash-file hash-ino-file)))
                          ;; no hash in DB, intern it
                          (progn (link file hash-file)
                                 (symlink hash-file ino-file))))))))
-      (visit-files #'intern-file pathname))))
+               (visit-files #'intern-file pathname))))
