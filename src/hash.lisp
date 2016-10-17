@@ -38,6 +38,13 @@
     (error "Wrong inode of ~A, wanted ~A"
            truename ino)))
 
+(defun verify-match (a b)
+  (uiop/run-program:run-program (list "cmp"
+                                      (namestring a)
+                                      (namestring b))
+                                :output *standard-output*
+                                :error-output *error-output*))
+
 (defun db-intern (pathname)
   (let* ((verbose *verbose*)
          (db (find-db pathname))
@@ -58,17 +65,35 @@
              (ino-file (ino)
                (merge-pathnames (format nil "~A" ino)
                                 inodir))
-             (cmp-file (a b)
-               (uiop/run-program:run-program (list "cmp"
-                                                   (namestring a)
-                                                   (namestring b))
-                                             :output *standard-output*
-                                             :error-output *error-output*))
+             (add-ino-file (hash ino-file)
+               (symlink (make-pathname :directory (list :relative :up *sha1-dir*)
+                                       :name hash)
+                        ino-file))
+             (intern-existing (file ino hash-file hash)
+               (let* ((hash-ino (ino hash-file))
+                      (hash-ino-file (ino-file hash-ino)))
+                 ;; Link hash-file to the file unless inodes match
+                 (unless (= ino hash-ino)
+                   (verify-match file hash-file) ; paranoid verify
+                   (sb-posix:unlink file)
+                   ;; Uh-oh, the file is temporarily missing...
+                   (link hash-file file))
+                 ;; Ensure that hashfile inode in registered
+                 (if-let ((probed (probe-file hash-ino-file)))
+                   ;; validate existing ino file
+                   (progn
+                     (db-check-ino-file hash-ino probed)
+                     (unless (equal (namestring probed)
+                                    (namestring (truename hash-file)))
+                       (error "Unexpected truename of ~A" hash-ino-file)))
+                   ;; create no file
+                   (add-ino-file hash hash-ino-file))))
              (intern-file (file)
                ;; gracefully abort
                (when *db-abort*
                  (setq *db-abort* nil)
                  (break))
+               ;; Intern it
                (let* ((ino (ino file))
                       (ino-file (ino-file ino)))
                  (if-let ((probe-ino (probe-file ino-file)))
@@ -79,25 +104,8 @@
                           (hash-file (merge-pathnames hash hashdir)))
                      (if (probe-file hash-file)
                          ;; have hash in DB, use it
-                         (let* ((hash-ino (ino hash-file))
-                                (hash-ino-file (ino-file hash-ino)))
-                           ;; Link hash-file to the file unless inodes match
-                           (unless (= ino hash-ino)
-                             (cmp-file file hash-file) ; paranoid verify
-                             (sb-posix:unlink file)
-                             ;; Uh-oh, the file is temporarily missing...
-                             (link hash-file file))
-                           ;; Ensure that hashfile inode in registered
-                           (if-let ((probed (probe-file hash-ino-file)))
-                             ;; validate existing ino file
-                             (progn
-                               (db-check-ino-file hash-ino probed)
-                               (unless (equal (namestring probed)
-                                              (namestring (truename hash-file)))
-                                 (error "Unexpected truename of ~A" hash-ino-file)))
-                             ;; create no file
-                             (symlink hash-file hash-ino-file)))
+                         (intern-existing file ino hash-file hash)
                          ;; no hash in DB, intern it
                          (progn (link file hash-file)
-                                (symlink hash-file ino-file))))))))
+                                (add-ino-file hash ino-file))))))))
                (visit-files #'intern-file pathname))))
