@@ -64,15 +64,15 @@
          :type nil
          :defaults pathname))))
 
-(defun subdir (pathname subdirectory)
+(defun subdir (pathname &rest subdirs)
   (let ((pathname (ensure-directory pathname)))
     (make-pathname :directory (append (pathname-directory pathname)
-                                      (ensure-list subdirectory))
+                                      subdirs)
                    :defaults pathname)))
 
 (defun parentdir (pathname)
-  (make-pathname :directory '(:relative :up)
-                 :defaults (ensure-directory pathname)))
+  (merge-pathnames (make-pathname :directory '(:relative :up))
+                   (ensure-directory pathname)))
 
 (defun listdir (pathname)
   (directory  (make-pathname :name :wild
